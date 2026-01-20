@@ -12,6 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // On fresh installs the column is already named "photo", so only run if "doc" exists.
+        if (! Schema::hasColumn('teachers', 'doc')) {
+            return;
+        }
+
         // SQLite doesn't support renameColumn, so we use raw SQL
         if (DB::getDriverName() === 'sqlite') {
             DB::statement('ALTER TABLE teachers RENAME COLUMN doc TO photo');
@@ -27,6 +32,11 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // Only reverse if the "photo" column exists.
+        if (! Schema::hasColumn('teachers', 'photo')) {
+            return;
+        }
+
         if (DB::getDriverName() === 'sqlite') {
             DB::statement('ALTER TABLE teachers RENAME COLUMN photo TO doc');
         } else {
