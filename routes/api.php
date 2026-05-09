@@ -8,6 +8,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\OldStudentController;
+use App\Http\Controllers\OrganizationMemberController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -16,15 +17,18 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/public/teachers', [TeacherController::class, 'publicIndex']);
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
+Route::get('/user', function (Request $request) {
         $user = $request->user()->load('role');
         return $user;
     });
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/organization-members/enroll', [OrganizationMemberController::class, 'enroll']);
     
     // Admin only routes
     Route::middleware('admin')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/organization-members', [OrganizationMemberController::class, 'index']);
+        Route::patch('/organization-members/{id}/approve', [OrganizationMemberController::class, 'approve']);
         
         // Users CRUD
         Route::apiResource('users', UserController::class);
