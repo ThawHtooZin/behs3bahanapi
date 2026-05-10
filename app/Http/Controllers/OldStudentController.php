@@ -13,7 +13,7 @@ class OldStudentController extends Controller
      */
     public function index()
     {
-        $oldStudents = OldStudent::orderBy('id', 'asc')->get();
+        $oldStudents = OldStudent::latest()->get();
         return response()->json(['old_students' => $oldStudents]);
     }
 

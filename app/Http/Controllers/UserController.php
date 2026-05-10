@@ -17,7 +17,7 @@ class UserController extends Controller
     {
         $users = User::with('role')
             ->select('id', 'name', 'email', 'role_id', 'created_at')
-            ->orderBy('id', 'asc')
+            ->latest()
             ->get();
 
         return response()->json([

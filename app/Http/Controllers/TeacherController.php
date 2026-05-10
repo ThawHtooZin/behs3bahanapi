@@ -13,7 +13,7 @@ class TeacherController extends Controller
      */
     public function publicIndex()
     {
-        $teachers = Teacher::orderBy('id', 'asc')->get();
+        $teachers = Teacher::latest()->get();
         return response()->json(['teachers' => $teachers]);
     }
 
@@ -22,7 +22,7 @@ class TeacherController extends Controller
      */
     public function index()
     {
-        $teachers = Teacher::orderBy('id', 'asc')->get();
+        $teachers = Teacher::latest()->get();
         return response()->json(['teachers' => $teachers]);
     }
 

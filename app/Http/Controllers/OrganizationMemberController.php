@@ -11,7 +11,6 @@ class OrganizationMemberController extends Controller
     public function index()
     {
         $members = OrganizationMember::with(['user.role'])
-            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
             ->latest()
             ->get();
 

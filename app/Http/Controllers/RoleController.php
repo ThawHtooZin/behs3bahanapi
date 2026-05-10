@@ -13,7 +13,7 @@ class RoleController extends Controller
      */
     public function index()
     {
-        $roles = Role::orderBy('id', 'asc')->get();
+        $roles = Role::latest()->get();
         return response()->json(['roles' => $roles]);
     }
 
