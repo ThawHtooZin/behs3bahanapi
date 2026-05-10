@@ -33,11 +33,11 @@ class TeacherController extends Controller
     {
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
-            'gender' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'address' => 'nullable|string',
             'subject' => 'nullable|string|max:255',
+            'position' => 'nullable|string',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'from_year' => 'nullable|integer',
             'to_year' => 'nullable|integer',
@@ -77,11 +77,11 @@ class TeacherController extends Controller
 
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
-            'gender' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'address' => 'nullable|string',
             'subject' => 'nullable|string|max:255',
+            'position' => 'nullable|string',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'from_year' => 'nullable|integer',
             'to_year' => 'nullable|integer',

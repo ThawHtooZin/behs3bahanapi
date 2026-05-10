@@ -11,11 +11,11 @@ class Teacher extends Model
 
     protected $fillable = [
         'name',
-        'gender',
         'phone',
         'email',
         'address',
         'subject',
+        'position',
         'photo',
         'from_year',
         'to_year',

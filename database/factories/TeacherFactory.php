@@ -17,15 +17,14 @@ class TeacherFactory extends Factory
     public function definition(): array
     {
         $subjects = ['Mathematics', 'English', 'Science', 'History', 'Geography', 'Physics', 'Chemistry', 'Biology', 'Myanmar', 'Art', 'Music', 'Physical Education'];
-        $genders = ['male', 'female'];
-        
+
         return [
             'name' => fake()->name(),
-            'gender' => fake()->randomElement($genders),
             'phone' => fake()->phoneNumber(),
             'email' => fake()->unique()->safeEmail(),
             'address' => fake()->address(),
             'subject' => fake()->randomElement($subjects),
+            'position' => fake()->optional()->jobTitle(),
             'photo' => null, // You can add photo generation later if needed
             'from_year' => fake()->numberBetween(1990, 2020),
             'to_year' => fake()->numberBetween(2020, 2025),
