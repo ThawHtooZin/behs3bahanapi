@@ -26,10 +26,7 @@ class DatabaseSeeder extends Seeder
         // Seed default admin user
         $this->call(AdminUserSeeder::class);
 
-        // Uncomment to seed teachers and old students
-        // $this->call([
-        //     TeacherSeeder::class,
-        //     OldStudentSeeder::class,
-        // ]);
+        // Uncomment to seed teachers
+        // $this->call([TeacherSeeder::class]);
     }
 }

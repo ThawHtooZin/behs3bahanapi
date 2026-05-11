@@ -7,7 +7,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\TeacherController;
-use App\Http\Controllers\OldStudentController;
 use App\Http\Controllers\OrganizationMemberController;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -23,7 +22,7 @@ Route::get('/user', function (Request $request) {
     });
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/organization-members/enroll', [OrganizationMemberController::class, 'enroll']);
-    
+
     // Admin only routes
     Route::middleware('admin')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
@@ -39,8 +38,5 @@ Route::get('/user', function (Request $request) {
         
         // Teachers CRUD
         Route::apiResource('teachers', TeacherController::class);
-        
-        // Old Students CRUD
-        Route::apiResource('old-students', OldStudentController::class);
     });
 });
