@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -62,7 +63,15 @@ class User extends Authenticatable
      */
     public function organizationMember(): HasOne
     {
-        return $this->hasOne(OrganizationMember::class);
+        return $this->hasOne(Member::class);
+    }
+
+    /**
+     * Get approved member record for this user.
+     */
+    public function member(): HasOne
+    {
+        return $this->hasOne(Member::class);
     }
 
     /**
@@ -79,5 +88,15 @@ class User extends Authenticatable
     public function hasDashboardAccess(): bool
     {
         return $this->role?->has_dashboard_access ?? false;
+    }
+
+    public function forumPosts(): HasMany
+    {
+        return $this->hasMany(ForumPost::class);
+    }
+
+    public function forumComments(): HasMany
+    {
+        return $this->hasMany(ForumComment::class);
     }
 }

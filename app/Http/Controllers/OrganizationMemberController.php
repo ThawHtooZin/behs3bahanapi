@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\OrganizationMember;
+use App\Models\Member;
 use App\Models\Role;
 use Illuminate\Http\Request;
 
@@ -10,12 +10,12 @@ class OrganizationMemberController extends Controller
 {
     public function index()
     {
-        $members = OrganizationMember::with(['user.role'])
+        $members = Member::with(['user.role', 'familyMembers'])
             ->latest()
             ->get();
 
         return response()->json([
-            'organization_members' => $members,
+            'members' => $members,
         ]);
     }
 
@@ -23,19 +23,22 @@ class OrganizationMemberController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'nrc_number' => 'required|string|max:255|unique:organization_members,nrc_number',
+            'nrc_number' => 'required|string|max:255|unique:members,nrc_number',
             'gender' => 'required|string|max:50',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'dob' => 'required|date|before:today',
             'address' => 'required|string|max:2000',
             'contact_number' => 'required|string|max:50',
             'email' => 'required|email|max:255',
+            'parent_name' => 'required|string|max:255',
+            'parent_occupation' => 'required|string|max:255',
             'agreed_to_rules' => 'accepted',
+            'family_members' => 'nullable|string',
         ]);
 
         $user = $request->user();
 
-        if (OrganizationMember::where('user_id', $user->id)->exists()) {
+        if (Member::where('user_id', $user->id)->exists()) {
             return response()->json([
                 'message' => 'You are already enrolled as an organization member.',
             ], 409);
@@ -45,22 +48,48 @@ class OrganizationMemberController extends Controller
         $data['user_id'] = $user->id;
 
         if ($request->hasFile('image')) {
-            $data['image'] = $request->file('image')->store('organization-members', 'public');
+            $data['image'] = $request->file('image')->store('members', 'public');
         }
 
-        $organizationMember = OrganizationMember::create($data);
+        $familyMembers = [];
+        if (!empty($validated['family_members'])) {
+            $decoded = json_decode($validated['family_members'], true);
+            if (!is_array($decoded)) {
+                return response()->json([
+                    'message' => 'Family members format is invalid.',
+                ], 422);
+            }
+            $familyMembers = collect($decoded)
+                ->filter(fn ($row) => is_array($row))
+                ->map(fn ($row) => [
+                    'name' => trim((string) ($row['name'] ?? '')),
+                    'relation' => trim((string) ($row['relation'] ?? '')),
+                    'nrc_number' => trim((string) ($row['nrcNumber'] ?? '')) ?: null,
+                    'occupation' => trim((string) ($row['occupation'] ?? '')),
+                ])
+                ->filter(fn ($row) => $row['name'] !== '')
+                ->values()
+                ->all();
+        }
+
+        unset($data['family_members']);
+
+        $organizationMember = Member::create($data);
+        if (!empty($familyMembers)) {
+            $organizationMember->familyMembers()->createMany($familyMembers);
+        }
         $user->load('role');
 
         return response()->json([
             'message' => 'Enrollment submitted successfully. Waiting for admin approval.',
-            'organization_member' => $organizationMember,
+            'member' => $organizationMember->load('familyMembers'),
             'user' => $user,
         ], 201);
     }
 
     public function approve(Request $request, string $id)
     {
-        $organizationMember = OrganizationMember::with('user')->findOrFail($id);
+        $organizationMember = Member::with('user')->findOrFail($id);
 
         if ($organizationMember->status === 'approved') {
             return response()->json([
@@ -88,7 +117,7 @@ class OrganizationMemberController extends Controller
 
         return response()->json([
             'message' => 'Enrollment approved successfully.',
-            'organization_member' => $organizationMember->fresh(),
+            'member' => $organizationMember->fresh(),
             'user' => $organizationMember->user,
         ]);
     }

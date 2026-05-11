@@ -8,6 +8,10 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\OrganizationMemberController;
+use App\Http\Controllers\MemberController;
+use App\Http\Controllers\OrganizationFeeController;
+use App\Http\Controllers\MemberProfileController;
+use App\Http\Controllers\ForumController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -21,13 +25,30 @@ Route::get('/user', function (Request $request) {
         return $user;
     });
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::post('/organization-members/enroll', [OrganizationMemberController::class, 'enroll']);
+    Route::post('/members/enroll', [OrganizationMemberController::class, 'enroll']);
+    Route::get('/profiles/{userId}', [MemberProfileController::class, 'show']);
+    Route::middleware('member_or_admin')->group(function () {
+        Route::get('/forum/posts', [ForumController::class, 'index']);
+        Route::get('/forum/posts/{postId}', [ForumController::class, 'show']);
+        Route::post('/forum/posts', [ForumController::class, 'storePost']);
+        Route::post('/forum/posts/{postId}/comments', [ForumController::class, 'storeComment']);
+        Route::patch('/forum/comments/{commentId}', [ForumController::class, 'updateComment']);
+        Route::delete('/forum/comments/{commentId}', [ForumController::class, 'destroyComment']);
+    });
+    Route::get('/members/profile', [MemberProfileController::class, 'me']);
+    Route::patch('/members/profile', [MemberProfileController::class, 'update']);
+    Route::post('/members/profile/avatar', [MemberProfileController::class, 'updateAvatar']);
+    Route::get('/organization-fee/me', [OrganizationFeeController::class, 'me']);
+    Route::post('/organization-fee/me/submit', [OrganizationFeeController::class, 'submit']);
 
     // Admin only routes
     Route::middleware('admin')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
-        Route::get('/organization-members', [OrganizationMemberController::class, 'index']);
-        Route::patch('/organization-members/{id}/approve', [OrganizationMemberController::class, 'approve']);
+        Route::get('/members/pending', [OrganizationMemberController::class, 'index']);
+        Route::patch('/members/{id}/approve', [OrganizationMemberController::class, 'approve']);
+        Route::get('/members', [MemberController::class, 'index']);
+        Route::get('/organization-fee/overview', [OrganizationFeeController::class, 'adminOverview']);
+        Route::patch('/organization-fee/submissions/{id}/review', [OrganizationFeeController::class, 'review']);
         
         // Users CRUD
         Route::apiResource('users', UserController::class);

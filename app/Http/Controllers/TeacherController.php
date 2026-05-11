@@ -9,11 +9,25 @@ use Illuminate\Support\Facades\Storage;
 class TeacherController extends Controller
 {
     /**
+     * Clear stale photo paths that no longer exist on disk.
+     */
+    private function sanitizeTeachers($teachers)
+    {
+        return $teachers->map(function ($teacher) {
+            if ($teacher->photo && !Storage::disk('public')->exists($teacher->photo)) {
+                $teacher->photo = null;
+            }
+
+            return $teacher;
+        });
+    }
+
+    /**
      * Display a listing of the resource (public).
      */
     public function publicIndex()
     {
-        $teachers = Teacher::latest()->get();
+        $teachers = $this->sanitizeTeachers(Teacher::latest()->get());
         return response()->json(['teachers' => $teachers]);
     }
 
@@ -22,7 +36,7 @@ class TeacherController extends Controller
      */
     public function index()
     {
-        $teachers = Teacher::latest()->get();
+        $teachers = $this->sanitizeTeachers(Teacher::latest()->get());
         return response()->json(['teachers' => $teachers]);
     }
 

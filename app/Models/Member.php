@@ -4,8 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class OrganizationMember extends Model
+class Member extends Model
 {
     protected $fillable = [
         'user_id',
@@ -21,6 +22,8 @@ class OrganizationMember extends Model
         'status',
         'approved_at',
         'approved_by',
+        'parent_name',
+        'parent_occupation',
     ];
 
     protected $casts = [
@@ -32,5 +35,20 @@ class OrganizationMember extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function feeSubmissions(): HasMany
+    {
+        return $this->hasMany(MembershipFeeSubmission::class);
+    }
+
+    public function familyMembers(): HasMany
+    {
+        return $this->hasMany(MemberFamilyMember::class);
     }
 }
