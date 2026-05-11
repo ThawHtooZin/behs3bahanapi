@@ -9,6 +9,27 @@ use Illuminate\Support\Facades\Storage;
 class TeacherController extends Controller
 {
     /**
+     * Empty strings from multipart forms become null so nullable columns and email rules behave.
+     */
+    private function normalizeNullableTeacherRequest(Request $request): void
+    {
+        $keys = ['phone', 'email', 'address', 'subject', 'position', 'from_year', 'to_year'];
+        $merge = [];
+        foreach ($keys as $key) {
+            if (! $request->exists($key)) {
+                continue;
+            }
+            $value = $request->input($key);
+            if ($value === '' || $value === null) {
+                $merge[$key] = null;
+            }
+        }
+        if ($merge !== []) {
+            $request->merge($merge);
+        }
+    }
+
+    /**
      * Clear stale photo paths that no longer exist on disk.
      */
     private function sanitizeTeachers($teachers)
@@ -45,6 +66,8 @@ class TeacherController extends Controller
      */
     public function store(Request $request)
     {
+        $this->normalizeNullableTeacherRequest($request);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:255',
@@ -57,7 +80,7 @@ class TeacherController extends Controller
             'to_year' => 'nullable|integer',
         ]);
 
-        $data = $request->except('photo');
+        $data = collect($validated)->except(['photo'])->all();
 
         if ($request->hasFile('photo')) {
             $photo = $request->file('photo');
@@ -89,6 +112,8 @@ class TeacherController extends Controller
     {
         $teacher = Teacher::findOrFail($id);
 
+        $this->normalizeNullableTeacherRequest($request);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:255',
@@ -101,7 +126,7 @@ class TeacherController extends Controller
             'to_year' => 'nullable|integer',
         ]);
 
-        $data = $request->except('photo');
+        $data = collect($validated)->except(['photo'])->all();
 
         if ($request->hasFile('photo')) {
             // Delete old photo if exists
