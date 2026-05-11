@@ -13,8 +13,8 @@ return new class extends Migration
             $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
             $table->string('name');
             $table->string('relation')->nullable();
+            $table->date('dob')->nullable();
             $table->string('nrc_number')->nullable();
-            $table->string('occupation')->nullable();
             $table->timestamps();
         });
     }

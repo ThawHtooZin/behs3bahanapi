@@ -11,8 +11,8 @@ class MemberFamilyMember extends Model
         'member_id',
         'name',
         'relation',
+        'dob',
         'nrc_number',
-        'occupation',
     ];
 
     public function member(): BelongsTo

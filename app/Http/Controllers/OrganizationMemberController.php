@@ -64,8 +64,8 @@ class OrganizationMemberController extends Controller
                 ->map(fn ($row) => [
                     'name' => trim((string) ($row['name'] ?? '')),
                     'relation' => trim((string) ($row['relation'] ?? '')),
+                    'dob' => !empty($row['dob']) ? $row['dob'] : null,
                     'nrc_number' => trim((string) ($row['nrcNumber'] ?? '')) ?: null,
-                    'occupation' => trim((string) ($row['occupation'] ?? '')),
                 ])
                 ->filter(fn ($row) => $row['name'] !== '')
                 ->values()
