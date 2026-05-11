@@ -56,14 +56,14 @@ class ForumController extends Controller
         $validated = $request->validate([
             'category' => 'required|string|in:'.implode(',', self::ALLOWED_CATEGORIES),
             'title' => 'required|string|max:255',
-            'description' => 'required|string|max:5000',
+            'content' => 'required|string|max:5000',
         ]);
 
         $post = ForumPost::create([
             'user_id' => $request->user()->id,
             'category' => $validated['category'],
             'title' => $validated['title'],
-            'description' => $validated['description'],
+            'content' => $validated['content'],
         ]);
 
         return response()->json([

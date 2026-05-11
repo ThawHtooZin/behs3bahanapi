@@ -89,7 +89,10 @@ return new class extends Migration
             }
         }
 
-        DB::statement("UPDATE members SET nrc_number = CONCAT('MIG-', id) WHERE nrc_number IS NULL OR nrc_number = ''");
+        $nrcExpr = DB::getDriverName() === 'sqlite'
+            ? "('MIG-' || id)"
+            : "CONCAT('MIG-', id)";
+        DB::statement("UPDATE members SET nrc_number = {$nrcExpr} WHERE nrc_number IS NULL OR nrc_number = ''");
         DB::statement("UPDATE members SET gender = 'မသတ်မှတ်' WHERE gender IS NULL OR gender = ''");
         DB::statement("UPDATE members SET dob = DATE(created_at) WHERE dob IS NULL");
         DB::statement("UPDATE members SET address = '-' WHERE address IS NULL OR address = ''");

@@ -12,7 +12,7 @@ class ForumPost extends Model
         'user_id',
         'category',
         'title',
-        'description',
+        'content',
         'views_count',
     ];
 
