@@ -20,14 +20,14 @@ class TeacherFactory extends Factory
 
         return [
             'name' => fake()->name(),
-            'phone' => fake()->phoneNumber(),
-            'email' => fake()->unique()->safeEmail(),
-            'address' => fake()->address(),
-            'subject' => fake()->randomElement($subjects),
+            'phone' => fake()->optional()->phoneNumber(),
+            'email' => fake()->optional(0.9)->unique()->safeEmail(),
+            'address' => fake()->optional()->address(),
+            'subject' => fake()->optional(0.85)->randomElement($subjects),
             'position' => fake()->optional()->jobTitle(),
-            'photo' => null, // You can add photo generation later if needed
-            'from_year' => fake()->numberBetween(1990, 2020),
-            'to_year' => fake()->numberBetween(2020, 2025),
+            'photo' => null,
+            'from_year' => fake()->optional(0.8)->numberBetween(1990, 2020),
+            'to_year' => fake()->optional(0.8)->numberBetween(2020, 2025),
         ];
     }
 }
