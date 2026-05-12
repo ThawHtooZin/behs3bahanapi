@@ -73,6 +73,48 @@ List former teachers (no auth).
 
 ---
 
+### `GET /public/news`
+
+List **published** news items (no auth). Newest first by `id`.
+
+**200** — `{ news: NewsItem[] }`
+
+Each item:
+
+```jsonc
+{
+  "id": 4,
+  "title": "Welcome ceremony",
+  "body": "Full text here ...",
+  "image_path": "news/abc123.jpg",   // or null
+  "is_published": true,
+  "created_at": "2026-05-12T05:30:00.000000Z",
+  "updated_at": "2026-05-12T05:30:00.000000Z"
+}
+```
+
+### `GET /public/news/{id}`
+
+Single published news item (no auth).
+
+**200** — `{ news: NewsItem }`  
+**404** — not found or unpublished.
+
+### `GET /public/announcements`
+
+List **published** announcements (no auth). Newest first by `id`. Same shape as news but the wrapper key is `announcements`.
+
+**200** — `{ announcements: Announcement[] }`
+
+### `GET /public/announcements/{id}`
+
+Single published announcement (no auth).
+
+**200** — `{ announcement: Announcement }`  
+**404** — not found or unpublished.
+
+---
+
 ## Authenticated (any logged-in user)
 
 Middleware: `auth:sanctum`.
@@ -630,6 +672,49 @@ Body: `role_id` required. Cannot change own role (**403**).
 
 ---
 
+### News (admin) — `/news`
+
+Site content for the public page `/info/news`. **Images only** (no video). Each item has one optional image.
+
+| Method | Path | Action |
+|--------|------|--------|
+| GET | `/news` | List all news (includes unpublished). Newest first by `id`. |
+| POST | `/news` | Create news item. |
+| GET | `/news/{id}` | Show one. |
+| PATCH | `/news/{id}` | Update fields and / or replace image. |
+| DELETE | `/news/{id}` | Delete and remove stored image if present. |
+
+**Body** for `POST` / `PATCH` (use **multipart** when sending `image`):
+
+| Field | Rules |
+|-------|--------|
+| `title` | required, string, max 255 |
+| `body` | required, string |
+| `image` | optional, image jpeg/png/jpg/gif/webp, max **5120 KB** |
+| `is_published` | optional boolean (defaults to `true` on create) |
+
+On `POST`/`PATCH` with a new `image`, the old image (if any) is deleted from the `public` disk and the new file is stored under `news/`.
+
+**201** (POST) — `{ message, news }`  
+**200** (PATCH) — `{ message, news }`  
+**200** (DELETE) — `{ message }`
+
+### Announcements (admin) — `/announcements`
+
+Same shape as News but for the public page `/info/announcement`. Image storage path is `announcements/`. List/return wrapper keys use `announcements` (list) and `announcement` (single).
+
+| Method | Path | Action |
+|--------|------|--------|
+| GET | `/announcements` | List all (includes unpublished). |
+| POST | `/announcements` | Create. |
+| GET | `/announcements/{id}` | Show one. |
+| PATCH | `/announcements/{id}` | Update. |
+| DELETE | `/announcements/{id}` | Delete. |
+
+Body fields are identical to `/news` above.
+
+---
+
 ## Common HTTP status codes
 
 | Code | Typical cause |
@@ -653,6 +738,8 @@ Uploaded files are stored on the `public` disk:
 - `membership-fees/...` — payment slip images
 - `records/{record_id}/...` — record (မှတ်တမ်းများ) media (one folder per record; deleted with the record)
 - `app/uploads/{user_id}/{upload_id}/...` — **temporary** chunked-upload sessions on the `local` disk (cleaned up when attached to a record or cancelled)
+- `news/...` — single image per news item (replaced/deleted with the item)
+- `announcements/...` — single image per announcement (replaced/deleted with the item)
 
 Build absolute URLs using your app’s public URL + `/storage/` + path (see `STORAGE_BASE_URL` in the UI config).
 

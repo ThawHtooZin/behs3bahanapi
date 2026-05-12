@@ -139,6 +139,26 @@ classDiagram
         +datetime created_at
     }
 
+    class NewsItem {
+        +int id
+        +string title
+        +string body
+        +string image_path
+        +bool is_published
+        +datetime created_at
+        +datetime updated_at
+    }
+
+    class Announcement {
+        +int id
+        +string title
+        +string body
+        +string image_path
+        +bool is_published
+        +datetime created_at
+        +datetime updated_at
+    }
+
     User "1" --> "0..1" Role : role_id
     Role "1" --> "*" User : users
 
@@ -196,6 +216,8 @@ Controllers map routes to models and validation. They do not add persistent fiel
 | `ForumController` | Posts and comments; views; mention parsing |
 | `RecordController` | မှတ်တမ်းများ feed (text + image/video) with FB-style reactions (6 types), per-record folder storage, owner/admin edit/delete; attaches finalized chunked uploads via `upload_ids[]` and dispatches `ProcessRecordMedia` job |
 | `RecordUploadController` | Chunked upload sessions for record media (no size / count caps); writes chunks under `storage/app/uploads/{user}/{upload_id}/chunks/*` with file-locked `meta.json`; concatenates into `final` once complete |
+| `NewsController` | Public list + detail of published `NewsItem`s; admin CRUD with optional single image upload (`news/`) |
+| `AnnouncementController` | Public list + detail of published `Announcement`s; admin CRUD with optional single image upload (`announcements/`) |
 | `DashboardController` | Admin dashboard stats |
 
 ## Middleware (cross-cutting)

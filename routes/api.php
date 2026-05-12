@@ -14,12 +14,18 @@ use App\Http\Controllers\MemberProfileController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\RecordController;
 use App\Http\Controllers\RecordUploadController;
+use App\Http\Controllers\NewsController;
+use App\Http\Controllers\AnnouncementController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 // Public routes
 Route::get('/public/teachers', [TeacherController::class, 'publicIndex']);
+Route::get('/public/news', [NewsController::class, 'publicIndex']);
+Route::get('/public/news/{id}', [NewsController::class, 'publicShow']);
+Route::get('/public/announcements', [AnnouncementController::class, 'publicIndex']);
+Route::get('/public/announcements/{id}', [AnnouncementController::class, 'publicShow']);
 
 Route::middleware('auth:sanctum')->group(function () {
 Route::get('/user', function (Request $request) {
@@ -78,5 +84,18 @@ Route::get('/user', function (Request $request) {
         
         // Teachers CRUD
         Route::apiResource('teachers', TeacherController::class);
+
+        // Site content (news & announcements; image upload only)
+        Route::get('/news', [NewsController::class, 'index']);
+        Route::post('/news', [NewsController::class, 'store']);
+        Route::get('/news/{id}', [NewsController::class, 'show']);
+        Route::patch('/news/{id}', [NewsController::class, 'update']);
+        Route::delete('/news/{id}', [NewsController::class, 'destroy']);
+
+        Route::get('/announcements', [AnnouncementController::class, 'index']);
+        Route::post('/announcements', [AnnouncementController::class, 'store']);
+        Route::get('/announcements/{id}', [AnnouncementController::class, 'show']);
+        Route::patch('/announcements/{id}', [AnnouncementController::class, 'update']);
+        Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy']);
     });
 });

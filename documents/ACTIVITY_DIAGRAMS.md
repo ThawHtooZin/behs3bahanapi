@@ -20,6 +20,8 @@ flowchart TB
     GHome[View home /]
     GContact[View /contact]
     GMap[View /contact/location]
+    GNews[View /info/news and /info/news/:id]
+    GAnn[View /info/announcement and /info/announcement/:id]
   end
 
   Guest --> GuestPaths
@@ -28,7 +30,7 @@ flowchart TB
   Guest --> NavChoice{Navigate via menu or URL}
   Session --> NavChoice
 
-  NavChoice --> PathCheck{Target is / or /contact or /contact/location?}
+  NavChoice --> PathCheck{Target is /, /contact, /contact/location, /info/news…, /info/announcement…?}
   PathCheck -->|Yes| GuestPaths
 
   PathCheck -->|No| AuthCheck{User authenticated?}
@@ -78,7 +80,7 @@ flowchart TB
 
 ### Notes (website)
 
-- **Guest-only URLs** without login are exactly: `/`, `/contact`, `/contact/location` (see `Navbar.jsx` `isGuestAllowedPath`).
+- **Guest-only URLs** without login: `/`, `/contact`, `/contact/location`, **`/info/news`** (+ `/info/news/:id`), **`/info/announcement`** (+ `/info/announcement/:id`), and `/info/rules-and-regulations` (see `Navbar.jsx` `isGuestAllowedPath`).
 - All other public-layout routes are wrapped in `RequireAuth` in `App.jsx`; unauthenticated access redirects to `/` with `openLogin: true` (same as many navbar clicks).
 - **Member** vs **non-member** changes the “Organization” submenu (`organization-fee` vs `organization-enrollment`).
 - **Forum** (`/forum`) is now **read-open** for any logged-in user (and the view still counts), but writes (posts, comments, replies, edits, deletes) are restricted to members/admins both on the API and in the UI.
@@ -167,6 +169,42 @@ flowchart TB
   Visit --> REnd
   Close --> REnd
 ```
+
+## 1d-info. News & Announcements (public, no auth)
+
+```mermaid
+flowchart TB
+  IStart([Visitor opens home /]) --> Home[Home shows 2-column “သတင်း နှင့် ကြေငြာချက်များ” panel]
+  Home --> HomeFetch[Parallel GET /public/news + GET /public/announcements]
+  HomeFetch --> Cards[Render up to 5 newest per column. No images on home preview. Green vs amber accents to distinguish.]
+  Cards --> ClickKind{User clicks…}
+  ClickKind -->|သတင်းများ → all| ListN[Navigate /info/news]
+  ClickKind -->|ကြေငြာချက်များ → all| ListA[Navigate /info/announcement]
+  ClickKind -->|One news item| DetN[Navigate /info/news/:id]
+  ClickKind -->|One announcement| DetA[Navigate /info/announcement/:id]
+
+  ListN --> FetchListN[GET /public/news]
+  ListA --> FetchListA[GET /public/announcements]
+  FetchListN --> Horizontal[Horizontal cards: image left, title/desc/“ဆက်ဖတ်ရန် →” right; stacks on mobile]
+  FetchListA --> Horizontal
+
+  Horizontal --> Pick{Click a card}
+  Pick -->|Yes| Detail[GET /public/{kind}/:id → full body + hero image]
+
+  DetN --> Detail
+  DetA --> Detail
+  Detail --> Back[Back-to-list link]
+  Back --> Horizontal
+```
+
+### Notes (info pages)
+
+- `/info/news` and `/info/announcement` (plus `:id` detail) are **fully public** — no login required.
+- The old plural `/info/announcements` redirects to `/info/announcement`.
+- Server only returns rows with `is_published = true` on public endpoints, newest first by `id`.
+- Home page previews call the same public endpoints in parallel, render up to 5 newest per column, and skip images for a compact look. Each column has its own accent (green for news, amber for announcements) so they read as separate things.
+
+---
 
 ## 1d. Forum read-only vs member/admin
 
@@ -269,13 +307,15 @@ flowchart TB
   Kick --> DEnd([End])
   IsAdmin -->|Yes| Layout[Render DashboardLayout + Outlet]
 
-  Layout --> Sidebar[Use sidebar: Overview, Users, Roles, Teachers, Enrollments, Members, Member Fees]
+  Layout --> Sidebar[Sidebar groups: Overview · User mgmt · School · Site content · Organization]
   Sidebar --> Pick{Select section}
 
   Pick --> OV[Overview /dashboard]
   Pick --> US[Users /dashboard/users]
   Pick --> RO[Roles /dashboard/roles]
   Pick --> TE[Teachers /dashboard/teachers]
+  Pick --> NW[News /dashboard/news]
+  Pick --> AN[Announcements /dashboard/announcements]
   Pick --> EN[Enrollments /dashboard/organization-members]
   Pick --> ME[Members /dashboard/members]
   Pick --> FE[Member Fees /dashboard/organization-fee]
@@ -284,6 +324,8 @@ flowchart TB
   US --> USAct[CRUD users via API]
   RO --> ROAct[CRUD roles via API]
   TE --> TEAct[CRUD teachers via API]
+  NW --> NWAct[CRUD news via API. Form fields: title, body, single image, published toggle. No sorting, no published-at — UX simplified.]
+  AN --> ANAct[CRUD announcements via API. Same form/UX as news.]
   EN --> ENAct[List pending enrollments; approve members]
   ME --> MEAct[List approved members]
   FE --> FEAct[Fee overview by year; review submissions]
@@ -292,6 +334,8 @@ flowchart TB
   USAct --> Loop
   ROAct --> Loop
   TEAct --> Loop
+  NWAct --> Loop
+  ANAct --> Loop
   ENAct --> Loop
   MEAct --> Loop
   FEAct --> Loop
@@ -310,6 +354,7 @@ flowchart TB
 - **Admin gate** is client-side in `Dashboard.jsx` (`isAdmin` from `AuthContext`). Non-admins are sent to `/` even if they type `/dashboard` manually.
 - Sidebar labels map to routes in `DashboardLayout.jsx` and `App.jsx` nested routes.
 - **Overview** loads aggregated data from `GET /api/dashboard` (see `Overview.jsx` / `authService.getDashboard`).
+- **Site content** group hosts the **News** and **Announcements** admin screens. Both share `InfoPostsAdmin.jsx`, only the title and underlying service differ (`newsAdminService` vs `announcementAdminService`).
 
 ---
 
