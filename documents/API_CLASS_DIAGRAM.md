@@ -69,6 +69,15 @@ classDiagram
         +string rejection_reason
     }
 
+    class OrganizationFeeSetting {
+        +int id
+        +int start_year
+        +int start_month
+        +datetime created_at
+        +datetime updated_at
+        +current() OrganizationFeeSetting
+    }
+
     class Teacher {
         +int id
         +string name
@@ -199,6 +208,8 @@ classDiagram
     RecordReaction "*" --> "1" User : user
 ```
 
+**MembershipFeeSubmission** — one row per `(member_id, fee_year, fee_month)`. Arrears slip upload and **ကြိုပေး** slip upload both create/update multiple rows that **share the same `slip_image`** until admins approve/reject via batch review. **`OrganizationFeeSetting`** holds the single org-wide collection start (`start_year`, `start_month`); `current()` returns the singleton row.
+
 ## HTTP layer (controllers)
 
 Controllers map routes to models and validation. They do not add persistent fields beyond request handling.
@@ -212,7 +223,7 @@ Controllers map routes to models and validation. They do not add persistent fiel
 | `OrganizationMemberController` | Enroll (`Member`); admin pending list and approve |
 | `MemberController` | Admin list approved members |
 | `MemberProfileController` | Current member profile, update, avatar; public-ish profile by `userId` |
-| `OrganizationFeeController` | Member fee status and slip upload; admin overview and review |
+| `OrganizationFeeController` | **`GET /organization-fee/me`** — arrears + prepay flags (`can_prepay`, `max_prepay_months_in_year`, etc.). **`POST …/submit`** — one slip fans out to pending rows for every unpaid month from org start through current month. **`POST …/submit-prepay`** — ကြိုပေး: one slip for the next N future months (same calendar year only; N ≤ `max_prepay_months_in_year`; gated when `outstanding_months` > 1). **`POST …/submissions/batch-review`** — admin confirms how many months a grouped slip covers (arrears or prepay). **`GET`/`PUT /organization-fee/settings`** — org collection start. **`GET …/overview`** — yearly grid + grouped pending list. Outstanding arrears count from **org collection start** only (not `approved_at`) |
 | `ForumController` | Posts and comments; views; mention parsing |
 | `RecordController` | မှတ်တမ်းများ feed (text + image/video) with FB-style reactions (6 types), per-record folder storage, owner/admin edit/delete; attaches finalized chunked uploads via `upload_ids[]` and dispatches `ProcessRecordMedia` job |
 | `RecordUploadController` | Chunked upload sessions for record media (no size / count caps); writes chunks under `storage/app/uploads/{user}/{upload_id}/chunks/*` with file-locked `meta.json`; concatenates into `final` once complete |
@@ -227,6 +238,8 @@ Controllers map routes to models and validation. They do not add persistent fiel
 | `auth:sanctum` | Requires valid Bearer token for protected routes |
 | `EnsureUserIsAdmin` | `role_id === 1` |
 | `EnsureUserIsMemberOrAdmin` | Admin or role slug/name `member` (forum **writes**, record **writes**) |
+
+For **end-to-end UI flows** (guest, member, admin, and each domain above), see `documents/ACTIVITY_DIAGRAMS.md`.
 
 ---
 

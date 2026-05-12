@@ -202,6 +202,18 @@ Multipart: `image` required — image jpeg/png/jpg/webp, max 4096 KB.
 
 ---
 
+### Organization fee — behavior summary
+
+| Topic | Behavior |
+|-------|------------|
+| **Collection start** | Single org-wide month (`OrganizationFeeSetting`). Arrears run from that month through **today’s** calendar month. |
+| **Arrears slip** | `POST /organization-fee/me/submit` — one image; server creates/refreshes **pending** rows for each unpaid month in that window (same `slip_image`). |
+| **ကြိုပေး slip** | `POST /organization-fee/me/submit-prepay` — only if `outstanding_months` ≤ 1; `months_ahead` ≤ `max_prepay_months_in_year` (future months through **December of this year** only). |
+| **Admin review** | Pending rows are grouped by member + `slip_image`. **`batch-review`** approves the first *N* months chronologically; uncovered rows are deleted or rejected. Same flow for arrears and prepay batches. |
+| **Member UI** | `OrganizationFee.jsx`: tabs **နောက်ကျ** vs **ကြိုပေး** (prepay tab follows API `can_prepay`). |
+
+---
+
 ### `GET /organization-fee/me`
 
 Fee summary for current member (requires `Member`).
@@ -211,8 +223,18 @@ Fee summary for current member (requires `Member`).
 - `member` — `{ id, name }`
 - `monthly_fee_mmk` — fixed **3000**
 - `current_month` — `{ year, month, status }` where `status` is `paid` | `pending` | `unpaid`
-- `outstanding_months`, `outstanding_amount_mmk`
-- `current_submission` — pending submission for current month if any
+- `outstanding_months` — count of months from org start through the current month that are **not approved** (i.e. either `pending` or have no submission)
+- `outstanding_amount_mmk` — `outstanding_months × monthly_fee_mmk`
+- `pending_months` — subset of `outstanding_months` that already have a pending submission awaiting review
+- `prepay_pending_months` — count of `pending` submissions in **future** months (after the current calendar month)
+- `can_prepay` — `true` when `outstanding_months` ≤ 1, collection is active, and there is at least one future month left **in the current calendar year** for prepay
+- `max_prepay_months_in_year` — maximum value allowed for **ကြိုပေး** `months_ahead`: `12 − current_calendar_month` (months from next month through December of this year; **0** in December)
+- `collection_start_year`, `collection_start_month` — org-wide fee collection start
+- `effective_start_year`, `effective_start_month` — equal to the org collection start
+- `collection_active` — `true` if collection start ≤ current month
+- `current_submission` — pending submission for **current** calendar month if any
+
+Outstanding months are computed as: count of months between `effective_start_*` and the current month (inclusive) that have **no approved** submission. If collection has not yet started, this is `0`.
 
 **404** — no member profile
 
@@ -220,11 +242,27 @@ Fee summary for current member (requires `Member`).
 
 ### `POST /organization-fee/me/submit`
 
-Upload payment slip for **current calendar month**. Multipart: `slip_image` required (image, jpeg/png/jpg/webp, max 4096 KB).
+Upload **one** payment slip that covers **every outstanding month** from the org collection start through the current month. Members pay the whole arrears in one transfer (e.g. 3 months late ⇒ transfer `3 × monthly_fee` and upload that one slip). Multipart: `slip_image` required (image, jpeg/png/jpg/webp, max 4096 KB).
 
-**200** — `{ message, ...same as /organization-fee/me }`  
+Server creates / refreshes a **pending** `MembershipFeeSubmission` row for each not-yet-approved month in `[org_start … current_month]`, all pointing at the uploaded slip image and the same `claimed_payment_date`. Admins still review per-row in the existing overview screen.
+
+**200** — `{ message, months_covered, ...same fields as /organization-fee/me }`  
 **404** — no member  
-**409** — current month already approved
+**409** — collection start is in the future, **or** there are no outstanding months
+
+---
+
+### `POST /organization-fee/me/submit-prepay`
+
+**ကြိုပေး** — one slip for **future** months only, within the **same calendar year**. Multipart: `slip_image` (required, same image rules) and `months_ahead` (required integer ≥ 1, upper bound = **`max_prepay_months_in_year`** from `GET /organization-fee/me`). The server creates or refreshes **pending** rows for the next `months_ahead` calendar months **after** the current month (stopping at December of this year).
+
+**Gate:** allowed only when **`outstanding_months` ≤ 1**. If `outstanding_months` ≥ 2 → **409**. If there are no months left in the current year after this month (December) → **409**.
+
+If `months_ahead` exceeds the remaining months in the current year → **422**.
+
+If any target month is already **approved**, returns **409** with an error message.
+
+**200** — `{ message, months_covered, ...same fields as /organization-fee/me }`
 
 ---
 
@@ -594,14 +632,24 @@ All members (approved list style).
 
 Query: `year` (optional, default current year).
 
-**200** — `{ year, months, rows, pending_submissions }`
+**200** — `{ year, months, rows, pending_submissions, collection_start_year, collection_start_month, current_year, current_month }`
 
-- `rows` — per member monthly status map (`paid` | `pending` | `unpaid`)
-- `pending_submissions` — pending slips for that year
+- `rows` — per member monthly status map. Each cell is one of:
+  - `paid` — approved submission exists
+  - `pending` — submission awaiting review
+  - `unpaid` — month is in-range (between org collection start and the current month, inclusive) and not yet paid
+  - `na_org` — before the org-wide collection start (not charged yet)
+  - `na_future` — calendar month is after “today” **and** there is no submission row yet (**ကြိုပေး** creates rows so future cells become `pending` / `paid` / `unpaid` instead)
+
+Note: every approved member is billed from the **org collection start** only (`approved_at` does not shorten the arrears window).
+
+- `pending_submissions` — flat list of **pending** rows for the selected `year` (admin UI groups these by member + `slip_image` into batches; future-month rows appear here when ကြိုပေး was submitted)
 
 ---
 
 ### `PATCH /organization-fee/submissions/{id}/review`
+
+Single-row review (rarely needed now — prefer the batch endpoint below).
 
 **Body (JSON)**
 
@@ -611,6 +659,56 @@ Query: `year` (optional, default current year).
 | `rejection_reason` | optional, max 1000 (used when rejected) |
 
 **200** — `{ message, submission }`
+
+---
+
+### `POST /organization-fee/submissions/batch-review`
+
+Batch-review one **batch** = same member + same `slip_image` (arrears fan-out or ကြိုပေး fan-out). Members upload **one** slip covering multiple months; the server creates one `pending` row per target month sharing that image. This endpoint reviews **all** ids in that batch in one call (admin picks how many months the payment actually covered).
+
+**Body (JSON)**
+
+| Field | Rules |
+|-------|--------|
+| `ids` | required, array of submission ids (≥ 1). **All** must belong to the same member and the same `slip_image`, and must be `pending`. |
+| `months_to_approve` | required integer ≥ 0, ≤ `ids.length`. Number of months the slip actually covers (e.g. 2 if the member transferred `2 × monthly_fee`). |
+| `rejection_reason` | optional string (max 1000). Applies to the **uncovered** rows when `months_to_approve < ids.length`. |
+
+Behavior, after sorting submissions by `(fee_year, fee_month)` ascending:
+
+- **First `months_to_approve` rows** → `status = approved`, reviewer + timestamp recorded.
+- **Remaining rows**:
+  - If `rejection_reason` is provided → `status = rejected` with that reason.
+  - Else → rows are **deleted** so those months return to "unpaid" and the member can re-upload.
+
+**200** — `{ message, approved, rejected, discarded }`  
+**404** — some `ids` not found  
+**422** — mixed members / slips, non-pending rows, or `months_to_approve > ids.length`
+
+---
+
+### `GET /organization-fee/settings`
+
+Read the org-wide fee collection start. Lazily-created with the current month on first read.
+
+**200** — `{ start_year, start_month, current_year, current_month }`
+
+---
+
+### `PUT /organization-fee/settings`
+
+Update the org-wide fee collection start.
+
+**Body (JSON)**
+
+| Field | Rules |
+|-------|--------|
+| `start_year` | required, integer 2000–2100 |
+| `start_month` | required, integer 1–12 |
+
+**200** — `{ message, start_year, start_month, current_year, current_month }`
+
+Changing this immediately reshapes the admin overview NA cells and recomputes every member's `outstanding_months` on the next `GET /organization-fee/me`.
 
 ---
 
@@ -735,7 +833,7 @@ Uploaded files are stored on the `public` disk:
 
 - `teachers/...` — teacher photos
 - `members/...` — member avatar / enrollment image
-- `membership-fees/...` — payment slip images
+- `membership-fees/...` — slip images for **both** arrears (`submit`) and **ကြိုပေး** (`submit-prepay`); multiple `MembershipFeeSubmission` rows can reference the same stored path
 - `records/{record_id}/...` — record (မှတ်တမ်းများ) media (one folder per record; deleted with the record)
 - `app/uploads/{user_id}/{upload_id}/...` — **temporary** chunked-upload sessions on the `local` disk (cleaned up when attached to a record or cancelled)
 - `news/...` — single image per news item (replaced/deleted with the item)

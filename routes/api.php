@@ -65,6 +65,7 @@ Route::get('/user', function (Request $request) {
     Route::post('/members/profile/avatar', [MemberProfileController::class, 'updateAvatar']);
     Route::get('/organization-fee/me', [OrganizationFeeController::class, 'me']);
     Route::post('/organization-fee/me/submit', [OrganizationFeeController::class, 'submit']);
+    Route::post('/organization-fee/me/submit-prepay', [OrganizationFeeController::class, 'submitPrepay']);
 
     // Admin only routes
     Route::middleware('admin')->group(function () {
@@ -74,6 +75,9 @@ Route::get('/user', function (Request $request) {
         Route::get('/members', [MemberController::class, 'index']);
         Route::get('/organization-fee/overview', [OrganizationFeeController::class, 'adminOverview']);
         Route::patch('/organization-fee/submissions/{id}/review', [OrganizationFeeController::class, 'review']);
+        Route::post('/organization-fee/submissions/batch-review', [OrganizationFeeController::class, 'batchReview']);
+        Route::get('/organization-fee/settings', [OrganizationFeeController::class, 'getSettings']);
+        Route::put('/organization-fee/settings', [OrganizationFeeController::class, 'updateSettings']);
         
         // Users CRUD
         Route::apiResource('users', UserController::class);

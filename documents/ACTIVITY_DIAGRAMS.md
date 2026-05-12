@@ -2,6 +2,29 @@
 
 Mermaid **flowchart** diagrams (activity-style) for the React app in `behs3bahan_ui`. Preview in GitHub, VS Code Markdown preview with Mermaid support, or [mermaid.live](https://mermaid.live).
 
+This file is aligned with the Eloquent models and controller responsibilities in `API_CLASS_DIAGRAM.md`: guests, authenticated **User**, **Member**, and **Admin** each have explicit flows where the product differs.
+
+## Diagram index (maps to class diagram)
+
+| § | Title | Primary models / controllers |
+|---|--------|------------------------------|
+| **1** | Public website usage | `PublicLayout`, `Navbar`, `RequireAuth` |
+| **1a** | Stakeholder and role map | `User`, `Role`, `Member` |
+| **1b**–**1e**, **1n** | Records feed, reactions, chunked upload, PostViewer | `Record`, `RecordMedia`, `RecordReaction`, `RecordController`, `RecordUploadController`, `ProcessRecordMedia` |
+| **1c** | Reactions | `RecordReaction` |
+| **1d-info** | News and announcements (public) | `NewsItem`, `Announcement` |
+| **1d** | Forum read vs write | `ForumPost`, `ForumComment`, `ForumPostView`, `ForumCommentMention` |
+| **1f** | Authentication | `AuthController`, `User` |
+| **1g** | Member enrollment and approval | `Member`, `MemberFamilyMember`, `OrganizationMemberController` |
+| **1h** | Member own profile | `Member`, `MemberProfileController` |
+| **1i** | Public profile by user id | `Member`, `MemberProfileController` |
+| **1j** | Organization monthly fee (arrears bulk slip, ကြိုပေး, admin grid + batch review) | `MembershipFeeSubmission`, `OrganizationFeeSetting`, `OrganizationFeeController` |
+| **1k** | Former teachers and teacher admin | `Teacher`, `TeacherController` |
+| **1l** | Users and roles admin | `User`, `Role`, `UserController`, `RoleController` |
+| **1m** | Forum mentions on comment | `ForumComment`, `ForumCommentMention` |
+| **1o** | News and announcements admin | `NewsItem`, `Announcement`, `NewsController`, `AnnouncementController` |
+| **2** | Admin dashboard shell | `DashboardController`, `Dashboard.jsx` |
+
 ---
 
 ## 1. Public website usage
@@ -88,6 +111,197 @@ flowchart TB
 
 ---
 
+## 1a. Stakeholder and role map (`User` + `Role` + `Member`)
+
+Who can do what at a glance (API rules mirror this).
+
+```mermaid
+flowchart TB
+  Actor([Someone uses the site]) --> AuthQ{Bearer token valid?}
+  AuthQ -->|No| Guest[Guest]
+  AuthQ -->|Yes| Logged[Authenticated User]
+
+  Guest --> GuestOnly[Home contact map info news announcement only]
+  Logged --> RoleQ{Admin?}
+  RoleQ -->|Yes| AdminPath[Full dashboard + all admin-only routes]
+  RoleQ -->|No| MemberQ{Member role slug or name?}
+  MemberQ -->|Yes| MemberPath[Forum writes + record writes + org fee + profile name link]
+  MemberQ -->|No| BasicUser[Forum read + records view or react + enrollment if not member]
+
+  AdminPath --> APIsA[Users Roles Teachers News Announcements Pending Members Fee review Dashboard stats]
+  MemberPath --> APIsM[POST forum comments POST records PATCH profile fee submit prepay]
+  BasicUser --> APIsU[GET forum GET records GET profiles react only]
+```
+
+---
+
+## 1f. Authentication (`AuthController` + `User`)
+
+```mermaid
+flowchart TB
+  StartA([Visitor wants an account]) --> Reg[POST /register JSON name email password]
+  Reg --> T201[201 user + token]
+  T201 --> StoreA[UI stores token in localStorage]
+
+  StartB([Visitor has account]) --> Log[POST /login JSON email password]
+  Log --> T200[200 user + token]
+  T200 --> StoreB[UI stores token]
+
+  StartC([User leaves]) --> Lo[POST /logout Bearer]
+  Lo --> Clear[Token revoked UI clears storage navigate /]
+```
+
+---
+
+## 1g. Member enrollment (`Member` + `MemberFamilyMember` + approver `User`)
+
+```mermaid
+flowchart TB
+  App([Logged-in user not yet member]) --> Page[Open /organization-enrollment]
+  Page --> Fill[Fill form + optional family_members JSON]
+  Fill --> Enroll[POST /members/enroll multipart image etc]
+  Enroll --> Pend[Member row pending status]
+
+  Adm([Admin]) --> ListP[GET /members/pending]
+  ListP --> Review[Review Member + familyMembers in UI]
+  Review --> Approve[PATCH /members/id/approve]
+  Approve --> Live[status approved user role set member]
+```
+
+---
+
+## 1h. Member own profile (`Member` — current user)
+
+```mermaid
+flowchart TB
+  M([Member opens /profile]) --> Load[GET /members/profile]
+  Load --> Form[Edit scalar fields]
+  Form --> Save[PATCH /members/profile JSON]
+  Form --> Pic[POST /members/profile/avatar multipart image]
+  Save --> Ok1[200 member]
+  Pic --> Ok2[200 member]
+```
+
+---
+
+## 1i. Public profile by user id (`Member` via `MemberProfileController`)
+
+```mermaid
+flowchart TB
+  U([Any authenticated user]) --> Nav[GET /profiles/userId from /profiles/:userId]
+  Nav --> Card[UI shows user + member summary]
+  Card --> EditQ{Viewer is same user?}
+  EditQ -->|Yes| Hint[can_edit true — deep link to /profile]
+  EditQ -->|No| ReadOnly2[can_edit false — read only]
+```
+
+---
+
+## 1j. Organization monthly fee (`MembershipFeeSubmission` + `OrganizationFeeSetting` + reviewer `User`)
+
+The org has a **single, admin-editable collection start month** (`OrganizationFeeSetting.start_year/start_month`). Arrears are counted from **that** month through **today’s** calendar month only (`approved_at` does **not** shorten the window).
+
+- **Outstanding months** = months in that window with **no approved** submission (`pending` or missing counts as owed).
+- **နောက်ကျ tab — `POST /organization-fee/me/submit`**: one slip image; server creates/refreshes **pending** rows for **every** unpaid month in the arrears window (same `slip_image` on each row).
+- **ကြိုပေး tab — `POST /organization-fee/me/submit-prepay`**: shown in UI only when API **`can_prepay`** is true (`outstanding_months` ≤ 1, collection active, and future months remain **this calendar year**). Member chooses **`months_ahead`** ≤ **`max_prepay_months_in_year`** (= months from next month through December). One slip; server creates **pending** rows for those future months. Not available in December when the cap is 0.
+- **Admin**: yearly grid (`GET /organization-fee/overview`); future columns show `na_future` until a submission exists, then `pending` / `paid` / `unpaid`. **Slip Review** lists pending rows grouped by member + slip; admin enters **months_to_approve** and calls **`batch-review`** (same for arrears batches and **ကြိုပေး** batches — prepay batches may show a **ကြိုပေး** badge when the first month is after “today”).
+- If collection start is in the future → arrears submit blocked.
+
+```mermaid
+flowchart TB
+  Mem([Approved member]) --> Me[GET /organization-fee/me]
+  Me --> UI[OrganizationFee.jsx: summary + slip card with tabs]
+  UI -->|collection_active=false| Blocked[Slip actions disabled]
+  UI --> TabA[Tab နောက်ကျ POST submit slip_image]
+  TabA --> WaitA[pending rows for each unpaid month through current month]
+  UI --> TabP[Tab ကြိုပေး — only if can_prepay]
+  TabP --> Pre[POST submit-prepay months_ahead capped by max_prepay_months_in_year]
+  Pre --> WaitP[pending rows for next N months same year]
+
+  AdmF([Admin]) --> Settings[GET /organization-fee/settings]
+  Settings --> Edit[PUT /organization-fee/settings start_year, start_month]
+  Edit --> Recompute[Overview grid + member GET me recompute]
+
+  AdmF --> Ov[GET /organization-fee/overview optional year]
+  Ov --> Grid[Grid: paid / pending / unpaid / na_org / na_future]
+  Ov --> Group[Group pending by member + slip_image]
+  Group --> Decide[months_to_approve vs batch size]
+  Decide --> Batch[POST batch-review ids, months_to_approve, optional rejection_reason]
+  Batch --> Effect[First N approved; rest deleted or rejected]
+  Effect --> MemNotified[Member sees updated status on next GET me]
+```
+
+---
+
+## 1k. Former teachers (`Teacher` — public list + admin CRUD)
+
+```mermaid
+flowchart TB
+  Any([Authenticated user]) --> FT[Former teachers page]
+  FT --> Pub[GET /public/teachers]
+  Pub --> List[Render teacher cards with optional photo URL]
+
+  AdT([Admin]) --> DashT[Teachers /dashboard/teachers]
+  DashT --> CRUD[GET POST PATCH DELETE /teachers multipart optional photo]
+  CRUD --> Disk[public disk teachers/...]
+```
+
+---
+
+## 1l. Users and roles admin (`User` + `Role`)
+
+```mermaid
+flowchart TB
+  AdU([Admin]) --> Users[Users tab GET /users CRUD /users id]
+  AdU --> Roles[Roles tab GET /roles CRUD /roles id]
+  Users --> ChRole[PUT /users/id/role body role_id]
+  Roles --> Guard[Cannot delete system roles with users assigned]
+```
+
+---
+
+## 1m. Forum comment mentions (`ForumComment` + `ForumCommentMention`)
+
+```mermaid
+flowchart TB
+  MemW([Member or admin writes comment]) --> PostC[POST /forum/posts/postId/comments JSON content parent_id optional]
+  PostC --> Back[ForumController stores ForumComment]
+  Back --> Parse[Parse @DisplayName in content]
+  Parse --> Ins[Insert ForumCommentMention rows linked to mentioned users]
+```
+
+---
+
+## 1n. Record detail viewer (`Record` + `RecordMedia`)
+
+After opening a record from the feed, media opens in a full-screen style viewer (not only the in-feed grid).
+
+```mermaid
+flowchart TB
+  Tap([User taps a thumbnail in MediaGrid]) --> Open[PostViewer opens with start index]
+  Open --> Left[Prev image or video keyboard or swipe]
+  Open --> Right[Next media]
+  Open --> Side[Sidebar author time full text reactions]
+  Left --> EndV([Close Esc])
+  Right --> EndV
+  Side --> EndV
+```
+
+---
+
+## 1o. News and announcements admin (`NewsItem` + `Announcement`)
+
+```mermaid
+flowchart TB
+  AdN([Admin]) --> PickN{Which content type?}
+  PickN --> News[News tab GET POST PATCH DELETE /news multipart]
+  PickN --> Ann[Announcements tab same for /announcements]
+  News --> PubN[Public site reads GET /public/news only is_published]
+  Ann --> PubA[GET /public/announcements only is_published]
+```
+
+---
+
 ## 1b. Records feed usage (မှတ်တမ်းများ)
 
 ```mermaid
@@ -111,7 +325,7 @@ flowchart TB
 
   GShow --> Card{For each record}
   Card --> CanMod{Author or admin?}
-  CanMod -->|No| Read[Read text and media; lightbox for images, inline player for video]
+  CanMod -->|No| Read[Read text and media; open PostViewer for carousel detail]
   CanMod -->|Yes| Menu[Open … menu]
   Menu --> Choose{Choose}
   Choose -->|Edit| Edit[Modal: change text, remove existing media, add new media → POST /records/id]
@@ -328,7 +542,7 @@ flowchart TB
   AN --> ANAct[CRUD announcements via API. Same form/UX as news.]
   EN --> ENAct[List pending enrollments; approve members]
   ME --> MEAct[List approved members]
-  FE --> FEAct[Fee overview by year; review submissions]
+  FE --> FEAct[Fee overview; collection start; Slip Review — grouped batches, months input, batch-review; prepay badge when future months]
 
   OVAct --> Loop{More admin work?}
   USAct --> Loop
