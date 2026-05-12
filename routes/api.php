@@ -12,6 +12,8 @@ use App\Http\Controllers\MemberController;
 use App\Http\Controllers\OrganizationFeeController;
 use App\Http\Controllers\MemberProfileController;
 use App\Http\Controllers\ForumController;
+use App\Http\Controllers\RecordController;
+use App\Http\Controllers\RecordUploadController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -27,14 +29,31 @@ Route::get('/user', function (Request $request) {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/members/enroll', [OrganizationMemberController::class, 'enroll']);
     Route::get('/profiles/{userId}', [MemberProfileController::class, 'show']);
+    // Forum: any authenticated user can view (and counts as a view);
+    // only members/admins can create posts, comment, edit or delete.
+    Route::get('/forum/posts', [ForumController::class, 'index']);
+    Route::get('/forum/posts/{postId}', [ForumController::class, 'show']);
     Route::middleware('member_or_admin')->group(function () {
-        Route::get('/forum/posts', [ForumController::class, 'index']);
-        Route::get('/forum/posts/{postId}', [ForumController::class, 'show']);
         Route::post('/forum/posts', [ForumController::class, 'storePost']);
         Route::post('/forum/posts/{postId}/comments', [ForumController::class, 'storeComment']);
         Route::patch('/forum/comments/{commentId}', [ForumController::class, 'updateComment']);
         Route::delete('/forum/comments/{commentId}', [ForumController::class, 'destroyComment']);
     });
+
+    // Records (မှတ်တမ်းများ): authenticated users can view + react; members/admins can post.
+    Route::get('/records', [RecordController::class, 'index']);
+    Route::middleware('member_or_admin')->group(function () {
+        // Chunked upload session endpoints — must come before /records/{id}.
+        Route::post('/records/uploads/chunk', [RecordUploadController::class, 'chunk']);
+        Route::delete('/records/uploads/{uploadId}', [RecordUploadController::class, 'cancel']);
+        Route::post('/records', [RecordController::class, 'store']);
+        Route::post('/records/{id}', [RecordController::class, 'update']);
+        Route::delete('/records/{id}', [RecordController::class, 'destroy']);
+    });
+    Route::get('/records/{id}', [RecordController::class, 'show']);
+    Route::get('/records/{id}/reactions', [RecordController::class, 'reactions']);
+    Route::post('/records/{id}/reactions', [RecordController::class, 'react']);
+    Route::delete('/records/{id}/reactions', [RecordController::class, 'unreact']);
     Route::get('/members/profile', [MemberProfileController::class, 'me']);
     Route::patch('/members/profile', [MemberProfileController::class, 'update']);
     Route::post('/members/profile/avatar', [MemberProfileController::class, 'updateAvatar']);
